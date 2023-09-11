@@ -4,12 +4,17 @@ Like tarfile, but streamable.
 
 ## What is this?
 
-This repository implements a "streaming archive" file format for collecting multiple files into one. This is similar to the tar format, but it puts the information about all the files in the archive into a contiguous block at the end of the file. This solves a couple problems:
+This repository implements a "streaming archive" file format for collecting multiple files into one. This is similar to the TAR format, but it puts the information about all the files in the archive into a contiguous block at the beginning of the file. This solves a couple problems:
 
-1. When the file is on local disk, it makes the startup time for reading the archive much faster, because we can read the entire header in one go, rather than having to seek around to each block.
-2. The benefits of the first bullet point are even greater when the file is on a remote file system, such as S3, because we can download the entire header in one network request, rather than having to make a network request for each file in the archive.
+1. Much faster startup times for large archives (we read the entire header into memory in one go)
+2. Much friendlier to remote file systems (only one network request rather than a bunch), in combination with `smart_open`
+3. Fast random access
+
+The file size is the same as an uncompressed TAR file.
 
 The downside is that once we've written a SAR file, we can't change it. Maybe future formats will support this, but for now, the recommended flow is to first generate a TAR file, then convert it using the builtin `sarpack` command line tool or the `sarfile.pack_tar` Python API.
+
+Also, the file format only exists in this repository, although it's very simple to implement (see the `_header.py` documentation and the `sarfile` object for how to load items).
 
 ## Getting Started
 
