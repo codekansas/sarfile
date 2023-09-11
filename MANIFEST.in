@@ -1,0 +1,1 @@
+recursive-include sarfile/ *.txt *.pyi py.typed MANIFEST.in

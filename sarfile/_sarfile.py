@@ -5,9 +5,10 @@ import functools
 import shutil
 import struct
 import tarfile
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import BinaryIO, Callable, Collection, Iterator
+from typing import Any, BinaryIO, Callable, Collection, Iterator, TypeVar
 
 from ._compress import get_file_sizes, get_files_to_pack
 from ._constants import MAGIC, PRE_HEADER_SIZE
@@ -29,28 +30,29 @@ except ImportError:
 StrPath = str | Path
 StrPathIO = str | Path | BinaryIO
 
+T = TypeVar("T")
 
-@contextmanager
-def maybe_open(fp: StrPathIO, mode: str = "rb") -> Iterator[BinaryIO]:
+
+def _maybe_tqdm(iterable: Iterator[T], **kwargs: Any) -> Iterator[T]:  # noqa: ANN401
+    if tqdm is None:
+        warnings.warn("tqdm is not installed, so no progress bar will be shown.")
+        yield from iterable
+    else:
+        yield from tqdm.tqdm(iterable, **kwargs)
+
+
+def _maybe_open(fp: StrPathIO, mode: str = "rb") -> BinaryIO:
     if isinstance(fp, (str, Path)):
         fpi = open(fp, mode)
-        yield fpi
-        fpi.close()
-    else:
-        assert fp.readable(), "File pointer is not readable."
-        return fp
+        return fpi
+    assert fp.mode == mode, f"File pointer mode is {fp.mode}, but expected {mode}."
+    return fp
 
 
-@contextmanager
-def maybe_tar_open(fp: StrPathIO, mode: str = "r") -> Iterator[tarfile.TarFile]:
+def _maybe_tar_open(fp: StrPathIO, mode: str = "r") -> tarfile.TarFile:
     if isinstance(fp, (str, Path)):
-        fpi = tarfile.open(name=fp, mode=mode)
-        yield fpi
-    else:
-        assert fp.readable(), "File pointer is not readable."
-        fpi = tarfile.open(fileobj=fp, mode=mode)
-        yield fpi
-    fpi.close()
+        return tarfile.open(name=fp, mode=mode)
+    return tarfile.open(fileobj=fp, mode=mode)
 
 
 class sarfile:  # noqa: N801
@@ -60,7 +62,7 @@ class sarfile:  # noqa: N801
         self._offsets = self._header._offsets(PRE_HEADER_SIZE + header_num_bytes)
 
     def _read_header(self) -> tuple[Header, int]:
-        with maybe_open(self._fp) as fp:
+        with _maybe_open(self._fp) as fp:
             if fp.tell() != 0:
                 raise ValueError("File pointer must be at the beginning of the file.")
             init_bytes = fp.read(PRE_HEADER_SIZE)
@@ -90,7 +92,7 @@ class sarfile:  # noqa: N801
 
     @contextmanager
     def __getitem__(self, index: int | str) -> Iterator[TarItem]:
-        with maybe_open(self._fp, "rb") as fp:
+        with _maybe_open(self._fp, "rb") as fp:
             if isinstance(index, str):
                 index = self.name_index[index]
             name, num_bytes = self._header.files[index]
@@ -141,9 +143,11 @@ class sarfile:  # noqa: N801
 
         # Writes all the files to the output sarfile.
         header = Header(files_with_sizes)
-        files_iter = files_with_sizes if tqdm is None else tqdm.tqdm(files_with_sizes)
-        Path(out).parent.mkdir(exist_ok=True, parents=True)
-        with maybe_open(out, "wb") as fpo:
+        files_iter = _maybe_tqdm(files_with_sizes, desc="Packing files")
+        (out_path := Path(out)).parent.mkdir(exist_ok=True, parents=True)
+        if out_path.suffix.lower() != ".sar":
+            warnings.warn("Output file does not have the `.sar` extension.")
+        with _maybe_open(out, "wb") as fpo:
             fpo.write(MAGIC)
             header.write(fpo)
             for file_path, _ in files_iter:
@@ -166,11 +170,22 @@ class sarfile:  # noqa: N801
             include_file: A function that takes a file name and returns whether
                 to include it in the sarfile.
         """
-        with maybe_tar_open(tar) as fpi, maybe_open(out, "wb") as fpo:
-            files_with_sizes = [(m.name, m.size) for m in fpi.getmembers() if include_file(m.name)]
+        (out_path := Path(out)).parent.mkdir(exist_ok=True, parents=True)
+        if out_path.suffix.lower() != ".sar":
+            warnings.warn("Output file does not have the `.sar` extension.")
+        with _maybe_tar_open(tar) as fpi, _maybe_open(out, "wb") as fpo:
+            files_with_sizes = list(
+                filter(
+                    lambda i: i[1] > 0,
+                    ((m.name, m.size) for m in fpi.getmembers() if include_file(m.name)),
+                )
+            )
             header = Header(files_with_sizes)
-            files_iter = files_with_sizes if tqdm is None else tqdm.tqdm(files_with_sizes)
+            files_iter = _maybe_tqdm(files_with_sizes, desc="Packing files")
             fpo.write(MAGIC)
             header.write(fpo)
             for file_path, _ in files_iter:
-                shutil.copyfileobj(fpi.extractfile(file_path), fpo)
+                try:
+                    shutil.copyfileobj(fpi.extractfile(file_path), fpo)
+                except Exception as e:
+                    raise RuntimeError(f"Failed to extract file `{file_path}`.") from e

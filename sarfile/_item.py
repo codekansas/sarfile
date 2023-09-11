@@ -98,4 +98,4 @@ class TarItem(BinaryIO):
         return self
 
     def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
-        pass
+        self.close()

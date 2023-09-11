@@ -107,8 +107,8 @@ class Header:
 
         fl_bytes = num_files * struct.calcsize(file_lengths_dtype)
         nl_bytes = num_files * struct.calcsize(name_lengths_dtype)
-        file_lengths, b = struct.unpack(f"<{num_files}{file_lengths_dtype}", b[:nl_bytes]), b[nl_bytes:]
-        names_bytes_lengths, b = struct.unpack(f"<{num_files}{name_lengths_dtype}", b[:fl_bytes]), b[fl_bytes:]
+        file_lengths, b = struct.unpack(f"<{num_files}{file_lengths_dtype}", b[:fl_bytes]), b[fl_bytes:]
+        names_bytes_lengths, b = struct.unpack(f"<{num_files}{name_lengths_dtype}", b[:nl_bytes]), b[nl_bytes:]
 
         names = []
         for name_bytes_length in names_bytes_lengths:
