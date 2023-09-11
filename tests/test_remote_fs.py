@@ -13,7 +13,7 @@ import sarfile
 @pytest.mark.skip(reason="This test accesses AWS and shouldn't be run on CI, run using CLI instead.")
 def test_streaming_from_aws(tmp_path: Path) -> None:
     try:
-        from smart_open import open
+        from smart_open import open  # type: ignore[import]
     except ImportError:
         raise ImportError("smart_open is required to run this test.")
 
