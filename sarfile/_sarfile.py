@@ -51,7 +51,7 @@ def _maybe_open_sar_read(fp: StrPathIO) -> BinaryIO:
 def _maybe_open_sar_write(fp: StrPathIO) -> BinaryIO:
     if isinstance(fp, (str, Path)):
         if Path(fp).suffix.lower() != ".sar":
-            warnings.warn(f"File name {fp} does not end with `.sar`")
+            warnings.warn("File name does not end with `.sar`")
         Path(fp).parent.mkdir(exist_ok=True, parents=True)
         fpi = open(fp, "wb")
         return fpi
@@ -114,7 +114,7 @@ class sarfile:  # noqa: N801
         *,
         out: StrPathIO,
         files: Collection[StrPath] | None = None,
-        root_dir: StrPath | None = None,
+        root: StrPath | None = None,
         only_extensions: Collection[str] | None = None,
         exclude_extensions: Collection[str] | None = None,
     ) -> None:
@@ -124,7 +124,7 @@ class sarfile:  # noqa: N801
             out: The output sarfile to write.
             files: A collection of files to pack. Mutually exclusive with
                 ``root_dir``.
-            root_dir: The root directory to iteratively search for files to
+            root: The root directory to iteratively search for files to
                 pack. Mutually exclusive with ``files``.
             only_extensions: If not None, only files with these extensions
                 will be included.
@@ -135,13 +135,13 @@ class sarfile:  # noqa: N801
             ValueError: If both ``files`` and ``root_dir`` are specified, or
                 neither are specified, or if no files are found.
         """
-        if (root_dir is None) == (files is None):
+        if (root is None) == (files is None):
             raise ValueError("Exactly one of `root_dir` or `files` must be specified.")
 
         # Gets the file sizes and common prefix directory.
-        if root_dir is not None:
-            root_dir = Path(root_dir)
-            common_prefix, files_with_sizes = get_files_to_pack(root_dir, only_extensions, exclude_extensions)
+        if root is not None:
+            root = Path(root)
+            common_prefix, files_with_sizes = get_files_to_pack(root, only_extensions, exclude_extensions)
         elif files is not None:
             common_prefix, files_with_sizes = get_file_sizes(files, only_extensions, exclude_extensions)
         else:

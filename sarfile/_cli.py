@@ -23,7 +23,7 @@ def main() -> None:
     else:
         sarfile.pack_files(
             out=out_path,
-            root_dir=in_path,
+            root=in_path,
             only_extensions=args.only_extensions,
             exclude_extensions=args.exclude_extensions,
         )

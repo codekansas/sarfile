@@ -15,7 +15,7 @@ def test_pack_files(tmpdir: Path) -> None:
 
     # Packs the files.
     out_path = Path(tmpdir / "out.sar")
-    sarfile.pack_files(out=out_path, root_dir=root_dir)
+    sarfile.pack_files(out=out_path, root=root_dir)
 
     # Loads the packed file.
     sar = sarfile.open(out_path)
