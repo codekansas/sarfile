@@ -1,7 +1,7 @@
 """Defines the BinaryIO interface for a sarfile item."""
 
 from types import TracebackType
-from typing import BinaryIO
+from typing import Any, BinaryIO, Iterator
 
 
 class TarItem(BinaryIO):
@@ -39,6 +39,9 @@ class TarItem(BinaryIO):
     def isatty(self) -> bool:
         return self._fp.isatty()
 
+    def readable(self) -> bool:
+        return self._fp.readable()
+
     def read(self, n: int = -1) -> bytes:
         if n < 0:
             return self._fp.read(self._end - self._fp.tell())
@@ -46,9 +49,6 @@ class TarItem(BinaryIO):
             if self._fp.tell() + n > self._end:
                 raise ValueError("Read size is larger than the file size.")
             return self._fp.read(n)
-
-    def readable(self) -> bool:
-        return self._fp.readable()
 
     def readline(self, limt: int = -1) -> bytes:
         raise NotImplementedError("Reading lines is not supported for tar items.")
@@ -85,13 +85,16 @@ class TarItem(BinaryIO):
     def tell(self) -> int:
         return self._fp.tell() - self._start
 
-    def truncate(self, size: int = None) -> int:
+    def truncate(self, size: int | None = None) -> int:
         raise NotImplementedError("Truncating is not supported for tar items.")
 
     def writable(self) -> bool:
         return False
 
-    def write(self, s: bytes | bytearray) -> int:
+    def write(self, s: Any) -> int:  # noqa: ANN401
+        raise NotImplementedError("Writing is not supported for tar items.")
+
+    def writelines(self, lines: Any) -> None:  # noqa: ANN401
         raise NotImplementedError("Writing is not supported for tar items.")
 
     def __enter__(self) -> "BinaryIO":
@@ -99,3 +102,9 @@ class TarItem(BinaryIO):
 
     def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
         self.close()
+
+    def __iter__(self) -> Iterator[bytes]:
+        raise NotImplementedError("Iterating is not supported for tar items.")
+
+    def __next__(self) -> bytes:
+        raise NotImplementedError("Iterating is not supported for tar items.")

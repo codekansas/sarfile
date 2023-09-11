@@ -6,9 +6,8 @@ import shutil
 import struct
 import tarfile
 import warnings
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Collection, Iterator, TypeVar
+from typing import Any, BinaryIO, Callable, Collection, Iterable, TypeVar
 
 from ._compress import get_file_sizes, get_files_to_pack
 from ._constants import MAGIC, PRE_HEADER_SIZE
@@ -19,7 +18,7 @@ from ._item import TarItem
 try:
     import tqdm
 except ImportError:
-    tqdm = None
+    tqdm = None  # type: ignore[assignment]
 
 # Patch `open` with `smart_open.open` if available.
 try:
@@ -33,19 +32,30 @@ StrPathIO = str | Path | BinaryIO
 T = TypeVar("T")
 
 
-def _maybe_tqdm(iterable: Iterator[T], **kwargs: Any) -> Iterator[T]:  # noqa: ANN401
+def _maybe_tqdm(iterable: Iterable[T], **kwargs: Any) -> Iterable[T]:  # noqa: ANN401
     if tqdm is None:
         warnings.warn("tqdm is not installed, so no progress bar will be shown.")
-        yield from iterable
+        return iterable
     else:
-        yield from tqdm.tqdm(iterable, **kwargs)
+        return tqdm.tqdm(iterable, **kwargs)
 
 
-def _maybe_open(fp: StrPathIO, mode: str = "rb") -> BinaryIO:
+def _maybe_open_sar_read(fp: StrPathIO) -> BinaryIO:
     if isinstance(fp, (str, Path)):
-        fpi = open(fp, mode)
+        fpi = open(fp, "rb")
         return fpi
-    assert fp.mode == mode, f"File pointer mode is {fp.mode}, but expected {mode}."
+    assert fp.readable(), "File pointer is not readable"
+    return fp
+
+
+def _maybe_open_sar_write(fp: StrPathIO) -> BinaryIO:
+    if isinstance(fp, (str, Path)):
+        if Path(fp).suffix.lower() != ".sar":
+            warnings.warn(f"File name {fp} does not end with `.sar`")
+        Path(fp).parent.mkdir(exist_ok=True, parents=True)
+        fpi = open(fp, "wb")
+        return fpi
+    assert fp.writable(), "File pointer mode is not writable"
     return fp
 
 
@@ -62,7 +72,7 @@ class sarfile:  # noqa: N801
         self._offsets = self._header._offsets(PRE_HEADER_SIZE + header_num_bytes)
 
     def _read_header(self) -> tuple[Header, int]:
-        with _maybe_open(self._fp) as fp:
+        with _maybe_open_sar_read(self._fp) as fp:
             if fp.tell() != 0:
                 raise ValueError("File pointer must be at the beginning of the file.")
             init_bytes = fp.read(PRE_HEADER_SIZE)
@@ -90,14 +100,13 @@ class sarfile:  # noqa: N801
     def __len__(self) -> int:
         return len(self._header.files)
 
-    @contextmanager
-    def __getitem__(self, index: int | str) -> Iterator[TarItem]:
-        with _maybe_open(self._fp, "rb") as fp:
-            if isinstance(index, str):
-                index = self.name_index[index]
-            name, num_bytes = self._header.files[index]
-            fp.seek(self._offsets[index])
-            yield TarItem(name, num_bytes, fp)
+    def __getitem__(self, index: int | str) -> TarItem:
+        fp = _maybe_open_sar_read(self._fp)
+        if isinstance(index, str):
+            index = self.name_index[index]
+        name, num_bytes = self._header.files[index]
+        fp.seek(self._offsets[index])
+        return TarItem(name, num_bytes, fp)
 
     @classmethod
     def pack_files(
@@ -144,10 +153,7 @@ class sarfile:  # noqa: N801
         # Writes all the files to the output sarfile.
         header = Header(files_with_sizes)
         files_iter = _maybe_tqdm(files_with_sizes, desc="Packing files")
-        (out_path := Path(out)).parent.mkdir(exist_ok=True, parents=True)
-        if out_path.suffix.lower() != ".sar":
-            warnings.warn("Output file does not have the `.sar` extension.")
-        with _maybe_open(out, "wb") as fpo:
+        with _maybe_open_sar_write(out) as fpo:
             fpo.write(MAGIC)
             header.write(fpo)
             for file_path, _ in files_iter:
@@ -170,10 +176,7 @@ class sarfile:  # noqa: N801
             include_file: A function that takes a file name and returns whether
                 to include it in the sarfile.
         """
-        (out_path := Path(out)).parent.mkdir(exist_ok=True, parents=True)
-        if out_path.suffix.lower() != ".sar":
-            warnings.warn("Output file does not have the `.sar` extension.")
-        with _maybe_tar_open(tar) as fpi, _maybe_open(out, "wb") as fpo:
+        with _maybe_tar_open(tar) as fpi, _maybe_open_sar_write(out) as fpo:
             files_with_sizes = list(
                 filter(
                     lambda i: i[1] > 0,
@@ -186,6 +189,7 @@ class sarfile:  # noqa: N801
             header.write(fpo)
             for file_path, _ in files_iter:
                 try:
-                    shutil.copyfileobj(fpi.extractfile(file_path), fpo)
+                    assert (stream := fpi.extractfile(file_path)) is not None
+                    shutil.copyfileobj(stream, fpo)  # type: ignore[misc]
                 except Exception as e:
                     raise RuntimeError(f"Failed to extract file `{file_path}`.") from e
