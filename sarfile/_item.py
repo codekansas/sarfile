@@ -47,7 +47,7 @@ class TarItem(BinaryIO):
             return self._fp.read(self._end - self._fp.tell())
         else:
             if self._fp.tell() + n > self._end:
-                raise ValueError("Read size is larger than the file size.")
+                return self._fp.read(self._end - self._fp.tell())
             return self._fp.read(n)
 
     def readline(self, limt: int = -1) -> bytes:
@@ -60,24 +60,24 @@ class TarItem(BinaryIO):
         match whence:
             case 0:
                 if offset < 0:
-                    raise ValueError("Negative seek position is not allowed.")
+                    return 1
                 if offset >= self._num_bytes:
-                    raise ValueError("Seek position is past the end of the file.")
+                    return 1
                 return self._fp.seek(self._start + offset, whence)
             case 1:
                 if offset < 0:
-                    raise ValueError("Negative seek position is not allowed.")
+                    return 1
                 if self._fp.tell() + offset >= self._end:
-                    raise ValueError("Seek position is past the end of the file.")
+                    return 1
                 return self._fp.seek(offset, whence)
             case 2:
                 if offset > 0:
-                    raise ValueError("Positive seek position is not allowed.")
+                    return 1
                 if self._fp.tell() + offset < self._start:
-                    raise ValueError("Seek position is past the end of the file.")
+                    return 1
                 return self._fp.seek(self._start + self._num_bytes + offset, whence)
             case _:
-                raise ValueError("Invalid whence value.")
+                return 1
 
     def seekable(self) -> bool:
         return self._fp.seekable()

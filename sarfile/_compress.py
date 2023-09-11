@@ -48,4 +48,4 @@ def get_file_sizes(
     files = [str(file) for file in files if _include_file(file, only_extensions, exclude_extensions)]
     common_prefix = Path(os.path.dirname(os.path.commonprefix(files)))
     file_paths = [Path(file).relative_to(common_prefix) for file in files]
-    return common_prefix, [(str(file), file.stat().st_size) for file in file_paths]
+    return common_prefix, [(str(file), (common_prefix / file).stat().st_size) for file in file_paths]
