@@ -23,8 +23,8 @@ def test_pack_files(tmpdir: Path) -> None:
     # Tests reading the file contents.
     assert len(sar) == 10
     for i in range(10):
-        with sar[f"file{i}.txt"] as (_, num_bytes, fpi):
-            assert fpi.read(num_bytes).decode() == f"Hello from {i}!"
+        with sar[f"file{i}.txt"] as fp:
+            assert fp.read().decode() == f"Hello from {i}!"
 
 
 def test_pack_tar(tmpdir: Path) -> None:
@@ -50,5 +50,5 @@ def test_pack_tar(tmpdir: Path) -> None:
     # Tests reading the file contents.
     assert len(sar) == 10
     for i in range(10):
-        with sar[f"file{i}.txt"] as (_, num_bytes, fpi):
-            assert fpi.read(num_bytes).decode() == f"Hello from {i}!"
+        with sar[f"file{i}.txt"] as fp:
+            assert fp.read().decode() == f"Hello from {i}!"

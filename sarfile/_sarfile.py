@@ -12,6 +12,7 @@ from typing import BinaryIO, Callable, Collection, Iterator
 from ._compress import get_file_sizes, get_files_to_pack
 from ._constants import MAGIC, PRE_HEADER_SIZE
 from ._header import Header
+from ._item import TarItem
 
 # Use `tqdm` for showing progress bar when packing files if available.
 try:
@@ -88,13 +89,13 @@ class sarfile:  # noqa: N801
         return len(self._header.files)
 
     @contextmanager
-    def __getitem__(self, index: int | str) -> Iterator[tuple[str, int, BinaryIO]]:
+    def __getitem__(self, index: int | str) -> Iterator[TarItem]:
         with maybe_open(self._fp, "rb") as fp:
             if isinstance(index, str):
                 index = self.name_index[index]
             name, num_bytes = self._header.files[index]
             fp.seek(self._offsets[index])
-            yield name, num_bytes, fp
+            yield TarItem(name, num_bytes, fp)
 
     @classmethod
     def pack_files(
