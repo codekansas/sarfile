@@ -39,7 +39,7 @@ def test_streaming_from_aws(tmp_path: Path) -> None:
     assert len(sar) == 100
     for i in [0, 99, 12]:
         decoded = sar[i].read().decode()
-        assert decoded == sar.names[i][:-len(".txt")]
+        assert decoded == sar.names[i][: -len(".txt")]
 
 
 if __name__ == "__main__":
