@@ -24,14 +24,14 @@ with open("README.md", "r", encoding="utf-8") as f:
 # Parses the version from `sarfile/__init__.py`.
 with open("sarfile/__init__.py", "r", encoding="utf-8") as fh:
     version_re = re.search(r"^__version__ = \"([^\"]*)\"", fh.read(), re.MULTILINE)
-assert version_re is not None, "Could not find version in ml/__init__.py"
+assert version_re is not None, "Could not find version in sarfile/__init__.py"
 version: str = version_re.group(1)
 
 
 setup(
     name="sarfile",
     version=version,
-    description="ML project template repository",
+    description="A Python library for reading and writing SAR files.",
     author="Benjamin Bolte",
     url="https://github.com/codekansas/sarfile",
     long_description=long_description,
@@ -47,5 +47,5 @@ setup(
     install_requires=REQUIREMENTS,
     tests_require=REQUIREMENTS_DEV,
     extras_require={"dev": REQUIREMENTS_DEV},
-    package_data={"ml": ["py.typed", "requirements.txt"]},
+    package_data={"sarfile": ["py.typed"]},
 )
