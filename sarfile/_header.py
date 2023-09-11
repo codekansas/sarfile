@@ -86,6 +86,7 @@ class Header:
         Returns:
             The decoded header.
         """
+
         def get_dtype_from_int(n: int) -> str:
             if n == 1:
                 return "B"

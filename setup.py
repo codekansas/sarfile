@@ -5,9 +5,9 @@ import re
 
 from setuptools import setup
 
-REQUIREMENTS = []
+REQUIREMENTS: list[str] = []
 
-REQUIREMENTS_DEV = [
+REQUIREMENTS_DEV: list[str] = [
     "black",
     "darglint",
     "mypy",

@@ -3,74 +3,80 @@
 import struct
 from contextlib import contextmanager
 from pathlib import Path
-from types import TracebackType
-from typing import BinaryIO, ContextManager, Literal, Union
-
+from typing import BinaryIO, Iterator, Union, Collection, Optional
+import functools
 from ._constants import MAGIC, PRE_HEADER_SIZE
 from ._header import Header
 
-Mode = Literal["r", "w"]
+StrPath = Union[str, Path]
+StrPathIO = Union[str, Path, BinaryIO]
 
 
 class sarfile:  # noqa: N801
-    def __init__(self, fp: Union[str, Path, BinaryIO], mode: Mode = "r") -> None:
-        self._fp: BinaryIO | None = None
+    def __init__(self, fp: StrPathIO) -> None:
+        self._fp = fp
         self._was_opened = False
-        self._mode = mode
-        self._header = self._read_header() if mode == "r" else None
+        self._header = self._read_header()
 
     def _read_header(self) -> Header:
         with self._open_file() as fp:
             init_bytes = fp.read(PRE_HEADER_SIZE)
-            if init_bytes[:len(MAGIC)] != MAGIC:
+            if init_bytes[: len(MAGIC)] != MAGIC:
                 raise IOError("Invalid magic number; this is not a sarfile.")
-            header_num_bytes = struct.unpack("Q", init_bytes[len(MAGIC):])[0]
+            header_num_bytes = struct.unpack("Q", init_bytes[len(MAGIC) :])[0]
             header_bytes = fp.read(header_num_bytes)
             return Header.decode(header_bytes)
 
     @contextmanager
-    def _open_file(self, fp: Union[str, Path, BinaryIO], mode: Mode) -> ContextManager[BinaryIO]:
-        if isinstance(fp, (str, Path)):
+    def _open_file(self) -> Iterator[BinaryIO]:
+        if isinstance(self._fp, (str, Path)):
             try:
-                fpi = open(fp, "rb")
+                fpi = open(self._fp, "rb")
                 yield fpi
             finally:
                 fpi.close()
         else:
-            assert fp.readable(), "File pointer is not readable."
-            return fp
+            assert self._fp.readable(), "File pointer is not readable."
+            return self._fp
 
-    def __enter__(self) -> "sarfile":
-        return self
+    @functools.cached_property
+    def names(self) -> list[str]:
+        return [name for _, name in self._header.files]
 
-    def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
-        self.close()
+    def extract(self, name: str) -> BinaryIO:
+        raise NotImplementedError
 
-    def open(self) -> None:
-        """Opens the file pointer.
+    @classmethod
+    def open(cls, fp: StrPathIO) -> "sarfile":
+        return cls(fp)
 
-        If a file pointer was passed, this does nothing. However, if a string
-        or path was passed, this will open the specified file in the given
-        mode (read or write).
+    @classmethod
+    def pack_files(
+        cls,
+        files: Optional[Collection[StrPath]] = None,
+        root_dir: Optional[StrPath] = None,
+        only_extensions: Optional[Collection[str]] = None,
+        exclude_extensions: Optional[Collection[str]] = None,
+    ) -> None:
+        """Packs a collection of files into a sarfile.
 
-        Raises:
-            IOError: If the file pointer is already open.
+        Args:
+            files: A collection of files to pack. Mutually exclusive with
+                ``root_dir``.
+            root_dir: The root directory to iteratively search for files to
+                pack. Mutually exclusive with ``files``.
+            only_extensions: If not None, only files with these extensions
+                will be included.
+            exclude_extensions: If not None, files with these extensions
+                will be excluded.
         """
-        if self._fp is not None:
-            raise IOError("File pointer is open.")
-        self._fp, self._was_opened = self._open_file(self._fp, self._mode)
+        if (root_dir is None) == (files is None):
+            raise ValueError("Exactly one of `root_dir` or `files` must be specified.")
 
-    def close(self) -> None:
-        """Closes the file pointer.
-
-        If a file pointer was passed, this does nothing. However, if a string
-        or path was passed, this will close the file pointer.
-
-        Raises:
-            IOError: If the file pointer is already closed.
-        """
-        if self._fp is None:
-            raise IOError("File pointer is closed.")
-        if self._was_opened:
-            self._fp.close()
-        self._fp = None
+        if root_dir is not None:
+            root_dir = Path(root_dir)
+            files_with_sizes = _get_files_to_pack(root_dir, only_extensions, exclude_extensions)
+        elif files is not None:
+            files_with_sizes = _get_file_sizes(files)
+        else:
+            assert False
