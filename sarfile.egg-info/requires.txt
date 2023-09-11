@@ -1,0 +1,8 @@
+
+[dev]
+black
+darglint
+mypy
+pytest
+pytest-timeout
+ruff

@@ -1,3 +1,24 @@
+Metadata-Version: 2.1
+Name: sarfile
+Version: 0.1.0
+Summary: ML project template repository
+Home-page: https://github.com/codekansas/sarfile
+Author: Benjamin Bolte
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: darglint; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-timeout; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+
 # sarfile
 
 Like tarfile, but streamable.
