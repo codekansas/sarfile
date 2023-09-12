@@ -12,7 +12,7 @@ from typing import Any, BinaryIO, Callable, Collection, Iterable, TypeVar
 from ._compress import get_file_sizes, get_files_to_pack
 from ._constants import MAGIC, PRE_HEADER_SIZE
 from ._header import Header
-from ._item import TarItem
+from ._item import SarItem
 
 # Use `tqdm` for showing progress bar when packing files if available.
 try:
@@ -100,13 +100,13 @@ class sarfile:  # noqa: N801
     def __len__(self) -> int:
         return len(self._header.files)
 
-    def __getitem__(self, index: int | str) -> TarItem:
+    def __getitem__(self, index: int | str) -> SarItem:
         fp = _maybe_open_sar_read(self._fp)
         if isinstance(index, str):
             index = self.name_index[index]
         name, num_bytes = self._header.files[index]
         fp.seek(self._offsets[index])
-        return TarItem(name, num_bytes, fp)
+        return SarItem(name, num_bytes, fp)
 
     @classmethod
     def pack_files(

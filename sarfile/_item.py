@@ -4,7 +4,7 @@ from types import TracebackType
 from typing import Any, BinaryIO, Iterator
 
 
-class TarItem(BinaryIO):
+class SarItem(BinaryIO):
     def __init__(self, name: str, num_bytes: int, fp: BinaryIO) -> None:
         assert fp.readable()
 
