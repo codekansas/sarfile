@@ -7,6 +7,19 @@ from dataclasses import dataclass
 from typing import BinaryIO
 
 
+class ByteReader:
+    def __init__(self, b: bytes) -> None:
+        self.b = b
+        self.offset = 0
+
+    def read(self, n: int) -> bytes:
+        self.offset += n
+        return self.b[self.offset - n : self.offset]
+
+    def remaining(self) -> int:
+        return len(self.b) - self.offset
+
+
 @dataclass
 class Header:
     """Defines the sarfile header.
@@ -99,23 +112,24 @@ class Header:
             else:
                 raise ValueError(f"Invalid dtype int: {n}")
 
-        (file_lengths_dtype_int, name_lengths_dtype_int), b = struct.unpack("BB", b[:2]), b[2:]
+        br = ByteReader(b)
+
+        (file_lengths_dtype_int, name_lengths_dtype_int) = struct.unpack("BB", br.read(2))
         file_lengths_dtype = get_dtype_from_int(file_lengths_dtype_int)
         name_lengths_dtype = get_dtype_from_int(name_lengths_dtype_int)
 
-        (num_files,), b = struct.unpack("Q", b[:8]), b[8:]
+        (num_files,) = struct.unpack("Q", br.read(8))
 
         fl_bytes = num_files * struct.calcsize(file_lengths_dtype)
         nl_bytes = num_files * struct.calcsize(name_lengths_dtype)
-        file_lengths, b = struct.unpack(f"<{num_files}{file_lengths_dtype}", b[:fl_bytes]), b[fl_bytes:]
-        names_bytes_lengths, b = struct.unpack(f"<{num_files}{name_lengths_dtype}", b[:nl_bytes]), b[nl_bytes:]
+        file_lengths = struct.unpack(f"<{num_files}{file_lengths_dtype}", br.read(fl_bytes))
+        names_bytes_lengths = struct.unpack(f"<{num_files}{name_lengths_dtype}", br.read(nl_bytes))
 
         names = []
         for name_bytes_length in names_bytes_lengths:
-            name_bytes, b = b[:name_bytes_length], b[name_bytes_length:]
+            name_bytes = br.read(name_bytes_length)
             names.append(name_bytes.decode("utf-8"))
-
-        assert len(b) == 0, f"Bytes left over: {len(b)}"
+        assert br.remaining() == 0, f"Bytes left over: {len(b)}"
 
         return cls(list(zip(names, file_lengths)))
 
