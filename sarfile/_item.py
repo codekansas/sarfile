@@ -60,24 +60,17 @@ class SarItem(BinaryIO):
         match whence:
             case 0:
                 if offset < 0:
-                    return 1
-                if offset >= self._num_bytes:
-                    return 1
-                return self._fp.seek(self._start + offset, whence)
+                    raise OSError("Invalid argument")
+                return self._fp.seek(min(self._start + offset, self._end), 0) - self._start
             case 1:
-                if offset < 0:
-                    return 1
-                if self._fp.tell() + offset >= self._end:
-                    return 1
-                return self._fp.seek(offset, whence)
+                c = self._fp.tell()
+                if offset < 0 and c + offset < self._start:
+                    raise OSError("Invalid argument")
+                return self._fp.seek(max(min(c + offset, self._end), self._start), 0) - self._start
             case 2:
-                if offset > 0:
-                    return 1
-                if self._fp.tell() + offset < self._start:
-                    return 1
-                return self._fp.seek(self._start + self._num_bytes + offset, whence)
+                return self._fp.seek(max(min(self._end + offset, self._end), self._start), 0) - self._start
             case _:
-                return 1
+                raise ValueError(f"whence value {4} unsupported")
 
     def seekable(self) -> bool:
         return self._fp.seekable()
@@ -108,3 +101,6 @@ class SarItem(BinaryIO):
 
     def __next__(self) -> bytes:
         raise NotImplementedError("Iterating is not supported for tar items.")
+
+    def __repr__(self) -> str:
+        return f"<SarItem name={self.name} num_bytes={self._num_bytes}>"
