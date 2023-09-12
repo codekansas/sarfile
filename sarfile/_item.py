@@ -68,6 +68,8 @@ class SarItem(BinaryIO):
                     raise OSError("Invalid argument")
                 return self._fp.seek(max(min(c + offset, self._end), self._start), 0) - self._start
             case 2:
+                if offset + self._end < self._start:
+                    raise OSError("Invalid argument")
                 return self._fp.seek(max(min(self._end + offset, self._end), self._start), 0) - self._start
             case _:
                 raise ValueError(f"whence value {4} unsupported")
